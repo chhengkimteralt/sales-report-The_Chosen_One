@@ -3,12 +3,14 @@ package edu.itc.salesreport.ui.fx;
 import edu.itc.salesreport.engine.DefaultSalesAggregator;
 import edu.itc.salesreport.ingest.CsvMonthReader;
 import edu.itc.salesreport.ingest.CsvTransactionParser;
+import edu.itc.salesreport.ui.ReportController;
 import edu.itc.salesreport.ui.SalesModel;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.YearMonth;
 
 public final class ReportApp extends Application {
@@ -20,11 +22,19 @@ public final class ReportApp extends Application {
 
         ReportView view = new ReportView(model);
 
+        var controller = new ReportController(
+                model, 
+                Path.of("data"), 
+                Clock.systemDefaultZone(), 
+                view
+        );
+        view.bind(controller);
+
         stage.setTitle("Angkor Mart Sales Report");
         stage.setScene(new Scene(view.root(), 900, 600));
         stage.show();
 
-        model.load(Path.of("data"), YearMonth.of(2026, 9));
+        controller.monthEntered("2026-09");
     }
 
     public static void main(String[] args) {

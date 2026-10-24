@@ -63,7 +63,7 @@ class SalesModelTest {
         var summary = model.summary();
         assertEquals("PNH", summary.branch());
         assertEquals(new BigDecimal("31.00"), summary.revenue());
-        assertEquals(new BigDecimal("15.50"), summary.averageBasket());
+        assertEquals(new BigDecimal("31.00"), summary.averageBasket());
     }
 
     @Test

@@ -49,7 +49,7 @@ public final class DefaultSalesAggregator implements SalesAggregator {
             });
         }
 
-        long receipts = rows.size();
+        long receipts = distinctReceipts.size();
 
         List<ProductTotal> topProducts = productAggMap.values().stream()
                 .sorted(Comparator.comparing(ProductAgg::revenue).reversed()

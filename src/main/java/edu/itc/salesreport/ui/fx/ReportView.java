@@ -43,7 +43,8 @@ public final class ReportView implements SalesModelListener, ErrorDisplay {
                 column("Product", SaleTransaction::productName),
                 column("Category", SaleTransaction::category),
                 column("Qty", t -> String.valueOf(t.quantity())),
-                column("Revenue", t -> t.revenue().toPlainString())));
+                column("Revenue", t -> t.revenue().toPlainString()),
+                column("Discount", t -> t.discount().toPlainString())));
 
         chart.setTitle("Revenue by category (USD)");
         chart.setLegendVisible(false);

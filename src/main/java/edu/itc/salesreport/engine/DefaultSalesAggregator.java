@@ -1,13 +1,20 @@
 package edu.itc.salesreport.engine;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+
 import edu.itc.salesreport.model.BranchSummary;
 import edu.itc.salesreport.model.PaymentMethod;
 import edu.itc.salesreport.model.ProductTotal;
 import edu.itc.salesreport.model.SaleTransaction;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.*;
 
 public final class DefaultSalesAggregator implements SalesAggregator {
 
@@ -42,7 +49,7 @@ public final class DefaultSalesAggregator implements SalesAggregator {
             });
         }
 
-        long receipts = distinctReceipts.size();
+        long receipts = rows.size();
 
         List<ProductTotal> topProducts = productAggMap.values().stream()
                 .sorted(Comparator.comparing(ProductAgg::revenue).reversed()

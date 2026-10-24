@@ -1,11 +1,12 @@
 package edu.itc.salesreport.ingest;
 
-import edu.itc.salesreport.model.PaymentMethod;
-import edu.itc.salesreport.model.SaleTransaction;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Set;
+
+import edu.itc.salesreport.model.PaymentMethod;
+import edu.itc.salesreport.model.SaleTransaction;
 
 /** The canonical parser for one line of a branch CSV file. */
 public final class CsvTransactionParser implements TransactionParser {

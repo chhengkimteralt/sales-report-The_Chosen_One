@@ -48,6 +48,11 @@
 | `src/test/java/edu/itc/salesreport/ui/mvp/ReportPresenterTest.java` | Task 5 | Headless tests verifying exact formatted display values |
 | `lab02/mvc-vs-mvp.md` | Task 5 | Detailed measurement and comparison table between MVC and MVP |
 | `lab02/adr-002-presentation-pattern.md` | Task 5 | Architecture Decision Record choosing MVC/MVVM direction |
+| `sales-web/pom.xml` | Challenge | Spring MVC project POM with Spring Boot 4.1.1 and Thymeleaf |
+| `sales-web/src/main/java/edu/itc/salesreport/web/SalesWebApp.java` | Challenge | Spring Boot application declaring beans for CsvMonthReader, SalesAggregator, and Clock |
+| `sales-web/src/main/java/edu/itc/salesreport/web/ReportWebController.java` | Challenge | Spring MVC controller validating inputs and querying SalesModel |
+| `sales-web/src/main/resources/templates/report.html` | Challenge | Thymeleaf template rendering monthly report, branch selector, error message, and totals |
+| `sales-web/src/test/java/edu/itc/salesreport/web/ReportWebControllerTest.java` | Challenge | @WebMvcTest testing valid request, invalid months, and branch validation with MockMvcTester |
 
 ---
 
@@ -55,4 +60,4 @@
 
 | Version / Tag | Date | Highlights |
 |---|---|---|
-| `lab-02` | 2026-10-24 | Completed Tasks 1-5: Observable model, JavaFX MVC views, Input validation, Headless unit tests, Fat controller refactoring, MVP variant with passive view, and ADR. |
+| `lab-02` | 2026-10-25 | Completed Tasks 1-5 and Challenge (Extra Credit): Spring MVC web view project `sales-web` reusing domain and model unchanged. |

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Angkor Mart - Sales Report</title>
+</head>
+<body>
+    <h1 th:text="|Angkor Mart · ${month} · ${branch}|">Angkor Mart · 2026-09 · ALL</h1>
+
+    <form method="get" action="/report">
+        <label for="month">Month:</label>
+        <input type="text" id="month" name="month" th:value="${month}" />
+
+        <label for="branch">Branch:</label>
+        <select id="branch" name="branch">
+            <option th:each="b : ${branches}"
+                    th:value="${b}"
+                    th:text="${b}"
+                    th:selected="${b == branch}"></option>
+        </select>
+
+        <button type="submit">Filter</button>
+    </form>
+
+    <p class="error" th:if="${error}" th:utext="${error}"></p>
+
+    <div th:if="${summary}">
+        <p th:text="|Revenue USD ${summary.revenue} · receipts ${summary.receipts} · basket USD ${summary.averageBasket()} · rejected rows ${#lists.size(rejected)}|"></p>
+
+        <h2>Revenue by Category</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="entry : ${summary.revenueByCategory}">
+                    <td th:text="${entry.key}">Category</td>
+                    <td th:text="${entry.value}">0.00</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Top Products</h2>
+        <ul>
+            <li th:each="prod : ${summary.topProducts}" th:text="|${prod.productName}: USD ${prod.revenue}|">Product: USD 0.00</li>
+        </ul>
+
+        <div th:if="${rejected != null and !rejected.isEmpty()}">
+            <h2>Rejected Rows</h2>
+            <ul>
+                <li th:each="row : ${rejected}" th:text="${row}"></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javafx.beans.Observable;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.beans.binding.ObjectBinding;
@@ -96,12 +99,23 @@ public final class ReportViewModel {
         for (String b : BRANCHES) {
             branchSelected.put(b, new SimpleBooleanProperty(this, b, true));
         }
-        // TODO Task 3: real rules (future month, empty branch selection)
-        monthError = Bindings.createStringBinding(() -> "", month);
-        branchError = Bindings.createStringBinding(() -> "");
-        validationMessage = Bindings.createStringBinding(() -> "");
-        canGenerate = month.isNotNull().and(loading.not());
-        // TODO Task 2: sum of summaries' revenue, formatted "USD 1,234.50"
+
+        // Task 3: real rules (future month, empty branch selection)
+        Observable[] flags = branchSelected.values().toArray(Observable[]::new);
+        monthError = Bindings.createStringBinding(
+                () -> checkMonth(month.get()), month);
+        branchError = Bindings.createStringBinding(
+                () -> selectedBranches().isEmpty() ? "Select at least one branch." : "",
+                flags);
+        validationMessage = Bindings.createStringBinding(
+                () -> Stream.of(monthError.get(), branchError.get())
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.joining(" ")),
+                monthError, branchError);
+        BooleanBinding valid = monthError.isEmpty().and(branchError.isEmpty());
+        canGenerate = valid.and(loading.not());
+
+        // Task 2: sum of summaries' revenue, formatted "USD 1,234.50"
         totalRevenue = Bindings.createObjectBinding(() -> summaries.stream()
                 .map(BranchSummary::revenue)
                 .reduce(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP), BigDecimal::add),
@@ -116,7 +130,8 @@ public final class ReportViewModel {
             nf.setMaximumFractionDigits(2);
             return "USD " + nf.format(rev);
         }, totalRevenue);
-        // TODO Task 2: bind visibleProducts' predicate to productFilter
+
+        // Task 2: bind visibleProducts' predicate to productFilter
         visibleProducts.predicateProperty().bind(Bindings.createObjectBinding(() -> {
             String filter = productFilter.get();
             if (filter == null || filter.isBlank()) {
@@ -130,6 +145,17 @@ public final class ReportViewModel {
         generateCommand = new DelegateCommand(this::generate, canGenerate);
         cancelCommand = new DelegateCommand(this::cancel,
                 loading.getReadOnlyProperty());
+    }
+
+    private String checkMonth(YearMonth m) {
+        if (m == null) {
+            return "Choose a month.";
+        }
+        YearMonth today = YearMonth.now(clock);
+        if (m.isAfter(today)) {
+            return "Month " + m + " is in the future.";
+        }
+        return "";
     }
 
     public List<String> selectedBranches() {
@@ -166,6 +192,7 @@ public final class ReportViewModel {
             @Override
             public void failed(Throwable error) {
                 loadError.set(error.getMessage() != null ? error.getMessage() : error.toString());
+                status.set("Load failed, previous data kept.");
                 loading.set(false);
             }
 

@@ -138,3 +138,34 @@ classDiagram
     ReportViewModel ..> BranchSummary : observes/holds
     ManualJobs ..|> BackgroundJobs : implements (test double)
 ```
+
+
+---
+
+## 4. Screen State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Incomplete
+    Incomplete --> Ready : month ok and a branch ticked
+    Incomplete --> Invalid : future month or no branch
+    Invalid --> Ready : input fixed
+    Ready --> Invalid : input changed
+    Ready --> Loading : generate
+    Loading --> Ready : cancelled
+    Loading --> Loaded : succeeded
+    Loaded --> Loading : generate again
+    Loading --> Failed : failed
+    Failed --> Loading : generate again
+```
+
+### Property Values per State
+
+| State | `month` | `branchSelected` | `monthError` | `branchError` | `validationMessage` | `canGenerate` | `loading` | `status` | `loadError` | Data Content |
+| :--- | :--- | :--- | :--- | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
+| **Incomplete** | `null` (or empty) | $\ge 1$ selected | `"Choose a month."` | `""` | `"Choose a month."` | `false` | `false` | `"Choose a month."` | `""` | `summaries` and `products` empty |
+| **Invalid** | Future month (e.g. `2026-10`) OR empty branches | None selected OR valid | `"Month ... is in the future."` or `""` | `"Select at least one branch."` or `""` | Non-empty error message(s) | `false` | `false` | Previous status | `""` | Previous data unchanged |
+| **Ready** | Valid month $\le$ current month | $\ge 1$ selected | `""` | `""` | `""` | `true` | `false` | Initial / Previous status | `""` | Previous data unchanged |
+| **Loading** | Valid month | $\ge 1$ selected | `""` | `""` | `""` | `false` | `true` | `"Loading X branch(es)..."` | `""` | Previous data |
+| **Loaded** | Valid month | $\ge 1$ selected | `""` | `""` | `""` | `true` | `false` | `"Loaded 3 branch(es) for 2026-08."` | `""` | Updated `summaries` and merged `products` |
+| **Failed** | Valid month | $\ge 1$ selected | `""` | `""` | `""` | `true` | `false` | `"Load failed, previous data kept."` | Exception message (e.g. `"...: unreadable"`) | Previous `summaries` and `products` kept |

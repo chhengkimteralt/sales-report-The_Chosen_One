@@ -20,6 +20,11 @@ class UiIndependenceTest {
             "import java.awt.",
             "import javax.swing.");
 
+    // toolkit-bound classes in ui/: views, composition roots, Task adapter, benchmark
+    private static final List<String> EXEMPT = List.of(
+            "ReportView.java", "ReportViewerApp.java",
+            "FxBackgroundJobs.java", "FrameGapMonitor.java", "LoadBenchmarkApp.java");
+
     private static final List<String> CORE_DIRS = List.of(
             "model",
             "ingest",
@@ -45,7 +50,7 @@ class UiIndependenceTest {
 
         for (Path f : javaFiles) {
             String fileName = f.getFileName().toString();
-            if (fileName.equals("ReportView.java") || fileName.equals("ReportViewerApp.java")) {
+            if (EXEMPT.contains(fileName)) {
                 continue;
             }
             var lines = Files.readAllLines(f);

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javafx.beans.Observable;
@@ -173,6 +174,7 @@ public final class ReportViewModel {
         }
         loading.set(true);
         loadError.set("");
+        progress.set(0);
         status.set("Loading " + branches.size() + " branch(es)...");
 
         running = jobs.submit(sink -> loadAll(m, branches, sink), new BackgroundJobs.JobListener<>() {
@@ -198,7 +200,7 @@ public final class ReportViewModel {
 
             @Override
             public void cancelled() {
-                status.set("Cancelled.");
+                status.set("Cancelled, previous data kept.");
                 loading.set(false);
             }
         });
@@ -209,7 +211,7 @@ public final class ReportViewModel {
         int total = branches.size();
         for (int i = 0; i < total; i++) {
             if (sink.isCancelled()) {
-                break;
+                throw new CancellationException("Cancelled");
             }
             String b = branches.get(i);
             list.add(source.load(m, b));

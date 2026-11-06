@@ -3,12 +3,16 @@ package edu.itc.salesreport.ui;
 import edu.itc.salesreport.engine.SimpleReportEngine;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 /** Composition root: the only class that knows every concrete type. */
 public class ReportViewerApp extends Application {
+
+    private ExecutorService workers;
 
     @Override
     public void start(Stage stage) {
@@ -19,13 +23,19 @@ public class ReportViewerApp extends Application {
         SummarySource source =
                 (month, branch) -> engine.summarizeBranch(month, branch,
                         dataDir);
-        // Task 2: CallerThreadJobs (UI still freezes, like Lab-02)
-        // Task 4: new FxBackgroundJobs(workers)
-        var vm = new ReportViewModel(source, new CallerThreadJobs(),
+        workers = Executors.newVirtualThreadPerTaskExecutor();
+        var vm = new ReportViewModel(source, new FxBackgroundJobs(workers),
                 Clock.systemDefaultZone());
         stage.setScene(new Scene(new ReportView(vm).root(), 960, 600));
         stage.setTitle("Angkor Mart · Monthly report (MVVM)");
         stage.show();
+    }
+
+    @Override
+    public void stop() {
+        if (workers != null) {
+            workers.shutdownNow();
+        }
     }
 
     public static void main(String[] args) {

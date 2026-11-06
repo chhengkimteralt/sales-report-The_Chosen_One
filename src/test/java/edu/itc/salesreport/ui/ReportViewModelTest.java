@@ -1,158 +1,195 @@
 package edu.itc.salesreport.ui;
 
-import edu.itc.salesreport.engine.SimpleReportEngine;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import edu.itc.salesreport.model.BranchSummary;
 import edu.itc.salesreport.model.ProductTotal;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+/** Plain JUnit: no JavaFX toolkit, no window, no robot, no sleep. */
+class ReportViewModelTest {
 
-public class ReportViewModelTest {
+    static final Clock SEP_27 = Clock.fixed(
+            Instant.parse("2026-09-27T03:00:00Z"),
+            ZoneId.of("Asia/Phnom_Penh"));
+    static final YearMonth AUG = YearMonth.of(2026, 8);
 
-    private SimpleReportEngine engine;
-    private ReportViewModel vm;
-    private final Path dataDir = Path.of("data");
-    private final Clock clock = Clock.fixed(Instant.parse("2026-09-27T00:00:00Z"), ZoneId.of("UTC"));
+    ManualJobs jobs = new ManualJobs();
+    List<String> loaded = new ArrayList<>();
+    boolean failNext;
+    String revenue = "200.00";
+    ReportViewModel vm;
 
     @BeforeEach
     void setUp() {
-        engine = new SimpleReportEngine();
-        SummarySource source = (month, branch) -> engine.summarizeBranch(month, branch, dataDir);
-        vm = new ReportViewModel(source, new CallerThreadJobs(), clock);
+        SummarySource source = (month, branch) -> {
+            if (failNext) {
+                throw new IOException(branch + "-2026-08-03.csv: unreadable");
+            }
+            loaded.add(branch);
+            return summary(branch, revenue);
+        };
+        vm = new ReportViewModel(source, jobs, SEP_27);
     }
 
-    @Test
-    void testInitialState() {
-        assertEquals("Choose a month.", vm.statusProperty().get());
-        assertFalse(vm.loadingProperty().get());
-        assertTrue(vm.summaries().isEmpty());
-        assertTrue(vm.visibleProducts().isEmpty());
-        assertEquals("USD 0.00", vm.totalRevenueTextProperty().get());
+    static BranchSummary summary(String branch, String revenue) {
+        var rice = new ProductTotal("SKU-1001", "Jasmine Rice 5kg",
+                new BigDecimal(revenue), 5);
+        return new BranchSummary(branch, new BigDecimal(revenue),
+                BigDecimal.ZERO, 10, Map.of(), List.of(rice), Map.of());
     }
 
-    @Test
-    void testExpectedOutputFiveInputCombinations() {
-        // Combination 1: Month = (empty), branches = PNH, REP, BTB
-        vm.monthProperty().set(null);
-        vm.branchSelectedProperty("PNH").set(true);
-        vm.branchSelectedProperty("REP").set(true);
-        vm.branchSelectedProperty("BTB").set(true);
-        assertEquals("Choose a month.", vm.validationMessageProperty().get());
-        assertEquals("Choose a month.", vm.monthErrorProperty().get());
-        assertEquals("", vm.branchErrorProperty().get());
-        assertFalse(vm.canGenerateProperty().get());
-        assertFalse(vm.generateCommand().isExecutable());
+    private void loadOnce() {
+        vm.monthProperty().set(AUG);
+        vm.generateCommand().execute();
+        jobs.runNext();
+    }
 
-        // Combination 2: Month = 2026-10, branches = PNH, REP, BTB
+    // ---- validation (3)
+
+    @Test
+    void futureMonthIsRejected() {
         vm.monthProperty().set(YearMonth.of(2026, 10));
-        assertEquals("Month 2026-10 is in the future.", vm.validationMessageProperty().get());
-        assertEquals("Month 2026-10 is in the future.", vm.monthErrorProperty().get());
-        assertEquals("", vm.branchErrorProperty().get());
-        assertFalse(vm.canGenerateProperty().get());
+        assertEquals("Month 2026-10 is in the future.",
+                vm.monthErrorProperty().get());
         assertFalse(vm.generateCommand().isExecutable());
+    }
 
-        // Combination 3: Month = 2026-08, branches = none
-        vm.monthProperty().set(YearMonth.of(2026, 8));
-        vm.branchSelectedProperty("PNH").set(false);
-        vm.branchSelectedProperty("REP").set(false);
-        vm.branchSelectedProperty("BTB").set(false);
-        assertEquals("Select at least one branch.", vm.validationMessageProperty().get());
-        assertEquals("", vm.monthErrorProperty().get());
-        assertEquals("Select at least one branch.", vm.branchErrorProperty().get());
-        assertFalse(vm.canGenerateProperty().get());
+    @Test
+    void cannotGenerateBeforeAMonthIsChosen() {
+        assertEquals("Choose a month.", vm.validationMessageProperty().get());
         assertFalse(vm.generateCommand().isExecutable());
+    }
 
-        // Combination 4: Month = (empty), branches = none
+    @Test
+    void emptyBranchSelectionIsRejected() {
+        vm.monthProperty().set(AUG);
+        for (String b : ReportViewModel.BRANCHES) {
+            vm.branchSelectedProperty(b).set(false);
+        }
+        assertEquals("Select at least one branch.",
+                vm.validationMessageProperty().get());
+        assertFalse(vm.canGenerateProperty().get());
+
         vm.monthProperty().set(null);
-        assertEquals("Choose a month. Select at least one branch.", vm.validationMessageProperty().get());
-        assertEquals("Choose a month.", vm.monthErrorProperty().get());
-        assertEquals("Select at least one branch.", vm.branchErrorProperty().get());
-        assertFalse(vm.canGenerateProperty().get());
-        assertFalse(vm.generateCommand().isExecutable());
+        assertEquals("Choose a month. Select at least one branch.",
+                vm.validationMessageProperty().get());
 
-        // Combination 5: Month = 2026-09, branches = PNH
         vm.monthProperty().set(YearMonth.of(2026, 9));
         vm.branchSelectedProperty("PNH").set(true);
-        vm.branchSelectedProperty("REP").set(false);
-        vm.branchSelectedProperty("BTB").set(false);
         assertEquals("", vm.validationMessageProperty().get());
-        assertEquals("", vm.monthErrorProperty().get());
-        assertEquals("", vm.branchErrorProperty().get());
-        assertTrue(vm.canGenerateProperty().get());
         assertTrue(vm.generateCommand().isExecutable());
     }
 
+    // ---- command enablement (2)
+
     @Test
-    void testForcedLoadErrorKeepsPreviousData() {
-        // First successful load
-        vm.monthProperty().set(YearMonth.of(2026, 8));
+    void generateStartsLoadingAndDisablesItself() {
+        vm.monthProperty().set(AUG);
         vm.generateCommand().execute();
-        assertEquals(3, vm.summaries().size());
-        assertEquals("Loaded 3 branch(es) for 2026-08.", vm.statusProperty().get());
-        assertEquals("", vm.loadErrorProperty().get());
-
-        // Create VM with failing source
-        SummarySource failingSource = (month, branch) -> {
-            if ("REP".equals(branch)) {
-                throw new IOException("REP-2026-08-03.csv: unreadable");
-            }
-            return engine.summarizeBranch(month, branch, dataDir);
-        };
-        ReportViewModel failingVm = new ReportViewModel(failingSource, new CallerThreadJobs(), clock);
-        // Copy loaded summaries to simulate previous data
-        failingVm.monthProperty().set(YearMonth.of(2026, 8));
-
-        // When load fails:
-        failingVm.generateCommand().execute();
-        assertEquals("REP-2026-08-03.csv: unreadable", failingVm.loadErrorProperty().get());
-        assertEquals("Load failed, previous data kept.", failingVm.statusProperty().get());
-        assertFalse(failingVm.loadingProperty().get());
+        assertTrue(vm.loadingProperty().get());
+        assertFalse(vm.generateCommand().isExecutable());
+        assertTrue(vm.cancelCommand().isExecutable());
+        assertEquals(1, jobs.pendingCount());
     }
 
     @Test
-    void testGenerateForAugust2026() {
-        vm.monthProperty().set(YearMonth.of(2026, 8));
-        assertTrue(vm.canGenerateProperty().get());
+    void generateIsIgnoredWhileInvalid() {
+        vm.generateCommand().execute(); // no month yet
+        assertEquals(0, jobs.pendingCount());
+        assertFalse(vm.loadingProperty().get());
+        assertFalse(vm.cancelCommand().isExecutable());
+    }
 
-        vm.generateCommand().execute();
+    // ---- success, progress, failure, cancellation, filter
 
-        assertEquals("Loaded 3 branch(es) for 2026-08.", vm.statusProperty().get());
+    @Test
+    void successfulLoadFillsSummariesAndTotal() {
+        revenue = "1234.50";
+        loadOnce();
         assertEquals(3, vm.summaries().size());
-
-        assertNotNull(vm.totalRevenueProperty().get());
-        assertTrue(vm.totalRevenueProperty().get().compareTo(BigDecimal.ZERO) > 0);
-        assertEquals("USD 26,452.70", vm.totalRevenueTextProperty().get());
+        assertEquals(new BigDecimal("3703.50"), vm.totalRevenueProperty().get());
+        assertEquals("USD 3,703.50", vm.totalRevenueTextProperty().get());
+        assertEquals("Loaded 3 branch(es) for 2026-08.", vm.statusProperty().get());
+        assertFalse(vm.loadingProperty().get());
+        assertTrue(vm.generateCommand().isExecutable());
+        assertFalse(vm.cancelCommand().isExecutable());
     }
 
     @Test
-    void testProductFilter() {
-        vm.monthProperty().set(YearMonth.of(2026, 8));
+    void progressFollowsTheBranches() {
+        List<Double> seen = new ArrayList<>();
+        vm.progressProperty().addListener((o, a, b) -> seen.add(b.doubleValue()));
+        loadOnce();
+        assertEquals(3, seen.size());
+        assertEquals(1.0 / 3, seen.get(0), 1e-9);
+        assertEquals(2.0 / 3, seen.get(1), 1e-9);
+        assertEquals(1.0, seen.get(2), 1e-9);
+    }
+
+    @Test
+    void failureKeepsPreviousDataAndShowsTheError() {
+        loadOnce();
+        failNext = true;
         vm.generateCommand().execute();
+        jobs.runNext();
+        assertEquals(3, vm.summaries().size());
+        assertEquals("USD 600.00", vm.totalRevenueTextProperty().get());
+        assertEquals("PNH-2026-08-03.csv: unreadable",
+                vm.loadErrorProperty().get());
+        assertEquals("Load failed, previous data kept.",
+                vm.statusProperty().get());
+        assertFalse(vm.loadingProperty().get());
+    }
 
-        int initialCount = vm.visibleProducts().size();
-        assertTrue(initialCount > 0);
+    @Test
+    void cancelReenablesGenerateAndKeepsOldData() {
+        loadOnce();
+        vm.generateCommand().execute();
+        assertTrue(vm.loadingProperty().get());
+        vm.cancelCommand().execute();
+        assertFalse(vm.loadingProperty().get());
+        assertEquals("Cancelled, previous data kept.", vm.statusProperty().get());
+        assertEquals(3, vm.summaries().size());
+        assertTrue(vm.generateCommand().isExecutable());
+        assertEquals(0, jobs.pendingCount());
+    }
 
-        String firstProductName = vm.visibleProducts().get(0).productName();
-        vm.productFilterProperty().set(firstProductName);
-        assertFalse(vm.visibleProducts().isEmpty());
-        for (ProductTotal pt : vm.visibleProducts()) {
-            assertTrue(pt.productName().toLowerCase().contains(firstProductName.toLowerCase())
-                    || pt.sku().toLowerCase().contains(firstProductName.toLowerCase()));
-        }
-
-        vm.productFilterProperty().set("NON_EXISTING_XYZ_123");
+    @Test
+    void productFilterIsCaseInsensitiveOnNameAndSku() {
+        loadOnce();
+        assertEquals(1, vm.visibleProducts().size());
+        vm.productFilterProperty().set("JASMINE");
+        assertEquals(1, vm.visibleProducts().size());
+        vm.productFilterProperty().set("sku-1001");
+        assertEquals(1, vm.visibleProducts().size());
+        vm.productFilterProperty().set("nothing like this");
         assertTrue(vm.visibleProducts().isEmpty());
-
         vm.productFilterProperty().set("");
-        assertEquals(initialCount, vm.visibleProducts().size());
+        assertEquals(1, vm.visibleProducts().size());
+    }
+
+    @Test
+    void workerUsesASnapshotOfTheInputs() {
+        vm.monthProperty().set(AUG);
+        vm.generateCommand().execute();
+        // user keeps editing while the job is queued
+        vm.branchSelectedProperty("BTB").set(false);
+        vm.monthProperty().set(YearMonth.of(2026, 7));
+        jobs.runNext();
+        assertEquals(List.of("PNH", "REP", "BTB"), loaded);
+        assertEquals("Loaded 3 branch(es) for 2026-08.", vm.statusProperty().get());
     }
 }
